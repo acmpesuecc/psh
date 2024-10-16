@@ -1,5 +1,11 @@
 # Participiant: How to Contribute
 
+## Prerequisites : 
+   - Must have a UNIX environment (any linux distro/wsl/macos).
+   - Have valgrind installed.
+
+## Steps to Contirubute :
+
 1. **Visit the HackNight 6.0 Leaderboard**:
    Browse the leaderboard and choose a repository you'd like to contribute to!
 
@@ -17,7 +23,14 @@
 4. **Make Your Changes**
    After cloning and setting up your branch, make the necessary changes to the code in your IDE.
 
-5. **Commit and Push**:
+5. **Run Make valgrind**
+   ```bash
+   make valgrind
+   ```
+   
+   Ensure that there aren't memory leaks.
+
+7. **Commit and Push**:
    Commit your changes and push them to your fork:
 
    ```bash
@@ -27,11 +40,11 @@
 
    Alternatively, use VSCode's inbuilt Git source control pane `Ctrl+Shift+G` if you're unconfortable with a CLI
 
-6. **Submit a Pull Request**:
+8. **Submit a Pull Request**:
    After pushing your changes, open a pull request to pull changes from your fork to the original repository.
 
-7. **Get Feedback**
+9. **Get Feedback**
    Wait for a maintainer to review your pull request (PR) and provide feedback.
 
-8. **Gain Bounty Points**
+10. **Gain Bounty Points**
    If everything is approved, your issue will be closed, and you'll gain bounty points on the leaderboard!
