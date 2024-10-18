@@ -107,6 +107,55 @@ void read_lines_wo_no(const char *filename, int low_lim, int up_lim)
     }
 }
 
+void write_to_temp(const char *filename, const char *temp_file, int low_lim, int up_lim)
+{
+    FILE *file = fopen(filename, "r");
+    if (file == NULL)
+    {
+        perror("Error opening history file");
+        return;
+    }
+
+    char line[1024];  // Allocate a fixed-size buffer for reading lines
+    size_t line_no = 1;
+
+    // Open the temp file for writing
+    FILE *temp = fopen(temp_file, "w");
+    if (temp == NULL)  // Check temp file pointer for NULL
+    {
+        perror("Error opening temporary file");
+        fclose(file);  // Close the history file before returning
+        return;
+    }
+
+    while (fgets(line, sizeof(line), file) != NULL)  // Read line by line
+    {
+        // Check if the line number is within the specified range
+        if (line_no >= (size_t)low_lim && line_no <= (size_t)up_lim)
+        {
+            // Write the line to the temp file using fprintf
+            int result = fprintf(temp, "%s", line);
+            if (result < 0)
+            {
+                perror("Error writing to temp file");
+                break;  // Exit the loop on error
+            }
+        }
+
+        line_no++;
+
+        // Stop once we exceed the upper limit
+        if (line_no > (size_t)up_lim)
+        {
+            break;
+        }
+    }
+
+    fflush(temp);  // Ensure all data is written
+    fclose(file);
+    fclose(temp);  // Close the temp file
+}
+
 int count_lines(const char *filename)
 {
     FILE *fp = fopen(filename, "r");

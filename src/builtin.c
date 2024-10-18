@@ -602,22 +602,21 @@ int PSH_FC(char **token_arr)
         }
 
         // Writing a specified range to temporary file
-        FILE *temp = fopen(temp_file, "w");
+        FILE *temp = fopen(temp_file, "w+");
         if (temp == NULL)
         {
             perror("Error creating temporary file");
             return 1;
         }
-        read_lines_wo_no(MEMORY_HISTORY_FILE, start, end);
-        fclose(temp);
+        // read_lines_wo_no(MEMORY_HISTORY_FILE, start, end);
+        write_to_temp(MEMORY_HISTORY_FILE, temp_file, start, end);
 
         // Opening editor with temporary file
         snprintf(command, sizeof(command), "%s %s", editor, temp_file);
+        command[strcspn(command, "\n")];
         system(command);
-
         // Reading edited commands from temporary file
-        FILE *edited = fopen(temp_file, "r");
-        if (edited == NULL)
+        if (temp == NULL)
         {
             perror("Error opening edited file");
             return 1;
@@ -625,7 +624,7 @@ int PSH_FC(char **token_arr)
 
         char *line = NULL;
         size_t len = 0;
-        while (getline(&line, &len, edited) != -1)
+        while (getline(&line, &len, temp) != -1)
         {
             // Removing newline character
             line[strcspn(line, "\n")] = 0;
@@ -642,14 +641,14 @@ int PSH_FC(char **token_arr)
             }
         }
 
-        fclose(edited);
+        fclose(temp);
         if (line)
         {
             free(line);
         }
 
         // Clean up temporary file
-        remove(temp_file);
+        // remove(temp_file);
 
         break;
     }
