@@ -170,57 +170,84 @@ char **PSH_TOKENIZER(char *line)
 
 int PSH_EXEC_EXTERNAL(char **token_arr)
 {
-    pid_t pid, wpid;
-    int status;
-    sigset_t sigset, oldset;
-
-    // Blocking SIGINT in the parent process
-    sigemptyset(&sigset);
-    sigaddset(&sigset, SIGINT);
-    sigprocmask(SIG_BLOCK, &sigset, &oldset);
-
-    pid = fork();
-    if (pid == 0)
+    int pipe_index = -1;
+    for (int i = 0; token_arr[i] != NULL; i++)
     {
-        // Restoring the default SIGINT behavior in the child process
-        sigprocmask(SIG_SETMASK, &oldset, NULL);
-        signal(SIGINT, SIG_DFL);
-
-        // Child process
-        if (execvp(token_arr[0], token_arr) == -1)
+        if (strcmp(token_arr[i], "|") == 0)
         {
-            perror("psh error");
-            exit(EXIT_FAILURE);
+            pipe_index = i;
+            break;
         }
     }
-    else if (pid < 0)
+
+    if (pipe_index == -1)
     {
-        // Forking error
-        perror("psh error");
+        // Single command (existing fork-exec)
+        pid_t pid, wpid;
+        int status;
+        sigset_t sigset, oldset;
+
+        sigemptyset(&sigset);
+        sigaddset(&sigset, SIGINT);
+        sigprocmask(SIG_BLOCK, &sigset, &oldset);
+
+        pid = fork();
+        if (pid == 0)
+        {
+            sigprocmask(SIG_SETMASK, &oldset, NULL);
+            signal(SIGINT, SIG_DFL);
+            if (execvp(token_arr[0], token_arr) == -1) { perror("psh error"); exit(EXIT_FAILURE); }
+        }
+        else if (pid < 0) { perror("psh error"); }
+        else
+        {
+            do { wpid = waitpid(pid, &status, WUNTRACED); } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+            sigprocmask(SIG_SETMASK, &oldset, NULL);
+            if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+            {
+                fprintf(stdout, "psh: Incorrect arguments or no arguments provided. Try \"man %s\" for usage details.\n", token_arr[0]);
+            }
+        }
     }
     else
     {
-        // Parent process
-        do
-        {
-            wpid = waitpid(pid, &status, WUNTRACED);
-            if (wpid == -1)
-            {
-                perror("waitpid");
-                exit(EXIT_FAILURE);
-            }
-        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        // PIPE LOGIC
+        token_arr[pipe_index] = NULL;
+        char **cmd1 = token_arr;
+        char **cmd2 = &token_arr[pipe_index + 1];
 
-        // Restoring the old signal mask
-        sigprocmask(SIG_SETMASK, &oldset, NULL);
+        int pipefd[2];
+        pid_t pid1, pid2;
 
-        if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+        if (pipe(pipefd) == -1) { perror("pipe"); exit(EXIT_FAILURE); }
+
+        // First child
+        if ((pid1 = fork()) == 0)
         {
-            fprintf(stdout, "psh: Incorrect arguments or no arguments provided. Try \"man %s\" for usage details.\n", token_arr[0]);
+            close(pipefd[0]);
+            dup2(pipefd[1], STDOUT_FILENO);
+            close(pipefd[1]);
+            if (execvp(cmd1[0], cmd1) == -1) { perror("psh error"); exit(EXIT_FAILURE); }
         }
+
+        // Second child
+        if ((pid2 = fork()) == 0)
+        {
+            close(pipefd[1]);
+            dup2(pipefd[0], STDIN_FILENO);
+            close(pipefd[0]);
+            if (execvp(cmd2[0], cmd2) == -1) { perror("psh error"); exit(EXIT_FAILURE); }
+        }
+
+        close(pipefd[0]);
+        close(pipefd[1]);
+        waitpid(pid1, NULL, 0);
+        waitpid(pid2, NULL, 0);
     }
+
     return 1;
 }
+
 
 void handle_input(char **inputline, size_t *n, const char *PATH)
 {
